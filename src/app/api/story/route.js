@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import axios from "axios";
 
 export async function POST(req) {
-  const { prompt } = await req.json();
+  const { prompt, max_tokens } = await req.json();
 
   const messages = [
     {
@@ -11,7 +11,7 @@ export async function POST(req) {
     },
     {
       role: "user",
-      content: `Please write a short story about: ${prompt}`,
+      content: `Write a two or three, complete short paragraph about: ${prompt}. End your thought properly and completely with the dot.`,
     },
   ];
 
@@ -22,7 +22,8 @@ export async function POST(req) {
         model: "gpt-4o-mini",
         messages,
         temperature: 0.8,
-        max_tokens: 800,
+        max_tokens,
+        stop: ["\n\n"],
       },
       {
         headers: {
@@ -34,6 +35,7 @@ export async function POST(req) {
     const story = response.data.choices[0].message.content;
     return NextResponse.json({ story });
   } catch (error) {
+    console.log("error: ", error);
     return NextResponse.json(
       { error: "Failed to generate story" },
       { status: 500 }

@@ -1,42 +1,86 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import axios from "axios";
 
 export default function StoryUI() {
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState("A cat who wants to fly");
   const [story, setStory] = useState("");
   const [audioUrl, setAudioUrl] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [loadingStory, setLoadingStory] = useState(false);
+  const [loadingAudio, setLoadingAudio] = useState(false);
+  const audioRef = useRef(null);
 
+  // Generate short story
   const generateStory = async () => {
-    setLoading(true);
+    setLoadingStory(true);
     setStory("");
     setAudioUrl(null);
-
+    setIsPlaying(false);
     try {
-      const res = await axios.post("/api/story", { prompt });
+      const res = await axios.post("/api/story", {
+        prompt,
+        max_tokens: 100, // ⬅️ Control story length
+      });
       setStory(res.data.story);
-    } catch (err) {
-      setStory("Failed to fetch story. Try again.");
-    }
 
-    setLoading(false);
+      // fetch audio in background
+      fetchAudioInBackground(res.data.story);
+    } catch (err) {
+      setStory("Failed to fetch story.");
+    }
+    setLoadingStory(false);
   };
 
-  const playAudio = async () => {
+  // Fetch audio without playing
+  const fetchAudioInBackground = async (text) => {
+    setLoadingAudio(true);
     try {
       const res = await axios.post(
         "/api/audio",
-        { story: story.slice(0, 2000) },
+        { story: text },
         { responseType: "blob" }
       );
       const blob = new Blob([res.data], { type: "audio/mpeg" });
       const url = URL.createObjectURL(blob);
       setAudioUrl(url);
     } catch (err) {
-      console.error("Audio error:", err);
+      console.error("TTS Error:", err);
+    } finally {
+      setLoadingAudio(false);
     }
   };
+
+  // Play/Pause toggle
+  const togglePlay = async () => {
+    // await fetchAudioInBackground(story);
+    if (!audioRef.current) {
+      audioRef.current = new Audio(audioUrl);
+      audioRef.current.onended = () => setIsPlaying(false);
+    }
+
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      if (audioUrl) {
+        audioRef.current.play();
+        setIsPlaying(true);
+      } else {
+        // show temporary loading
+        alert("Loading sound...");
+      }
+    }
+  };
+
+  // Reset audio when new story is requested
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+      setIsPlaying(false);
+    }
+  }, [story]);
 
   return (
     <div className="bg-gray-800 p-6 rounded-xl max-w-2xl w-full shadow-lg space-y-4">
@@ -52,34 +96,34 @@ export default function StoryUI() {
 
       <button
         onClick={generateStory}
-        disabled={loading || !prompt}
+        disabled={loadingStory || !prompt}
         className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-md"
       >
-        {loading ? "Generating..." : "Tell me a story"}
+        {loadingStory ? "Generating story..." : "Tell me a story"}
       </button>
 
       {story && (
-        <>
-          <div className="bg-gray-700 p-4 rounded-md whitespace-pre-line">
+        <div className="relative pt-2">
+          {/* Sticky Play/Pause */}
+          <div className="sticky top-0 z-10 bg-gray-900 pb-2">
+            <button
+              onClick={togglePlay}
+              disabled={loadingAudio}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-md w-full"
+            >
+              {loadingAudio
+                ? "🔄 Loading sound..."
+                : isPlaying
+                ? "⏸️ Pause Story"
+                : "▶️ Play Story"}
+            </button>
+          </div>
+
+          {/* Story box */}
+          <div className="bg-gray-700 p-4 rounded-md whitespace-pre-line mt-2">
             {story}
           </div>
-
-          <div className="pt-4 text-center">
-            <button
-              onClick={playAudio}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md"
-            >
-              🔊 Play Story
-            </button>
-
-            {audioUrl && (
-              <audio controls autoPlay className="mt-4 w-full">
-                <source src={audioUrl} type="audio/mpeg" />
-                Your browser does not support the audio element.
-              </audio>
-            )}
-          </div>
-        </>
+        </div>
       )}
     </div>
   );
