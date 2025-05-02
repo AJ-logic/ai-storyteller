@@ -29,6 +29,7 @@ export async function POST(req) {
       },
     });
   } catch (error) {
+    console.log("error: ", error);
     return NextResponse.json(
       { error: "Failed to generate audio" },
       { status: 500 }
