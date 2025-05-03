@@ -32,7 +32,6 @@ export async function POST(req) {
     // Return image as base64 string for frontend to use in <img src={`data:image/png;base64,${image}`} />
     return NextResponse.json({ image: `data:image/png;base64,${base64Image}` });
   } catch (error) {
-    console.log(error);
     console.error(
       "Image generation failed:",
       error.response?.data || error.message

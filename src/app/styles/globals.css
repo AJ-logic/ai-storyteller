@@ -13,7 +13,120 @@
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: url("/background.png") no-repeat center center fixed;
+  background-size: cover;
+  position: relative;
+  min-height: 100vh;
+  font-family: "Quicksand", "Segoe UI", sans-serif;
+  color: #f3e9ff;
+  overflow-x: hidden;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 10, 40, 0.3);
+  pointer-events: none;
+  z-index: 0;
+}
+
+#main-container {
+  background: rgba(40, 20, 60, 0.85);
+  border-radius: 24px;
+  box-shadow: 0 0 40px 10px #7f5fff88;
+  padding: 2rem 2.5rem;
+  margin: 2rem auto;
+  max-width: 600px;
+  position: relative;
+  z-index: 1;
+  animation: fadeIn 1.5s;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+button {
+  background: linear-gradient(90deg, #7f5fff, #ff6fff);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  margin: 0.5rem 0;
+  font-size: 1.1rem;
+  font-weight: bold;
+  box-shadow: 0 0 10px #7f5fff88;
+  cursor: pointer;
+  transition: background 0.4s, box-shadow 0.4s, transform 0.2s;
+}
+
+button:hover,
+button:focus {
+  background: linear-gradient(90deg, #ff6fff, #7f5fff);
+  box-shadow: 0 0 20px #ff6fffcc, 0 0 40px #7f5fff88;
+  transform: scale(1.05);
+}
+
+input,
+textarea {
+  background: rgba(30, 20, 50, 0.9);
+  color: #fff;
+  border: 1px solid #7f5fff;
+  border-radius: 8px;
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  width: 100%;
+  transition: border 0.3s;
+}
+
+input:focus,
+textarea:focus {
+  border: 1.5px solid #ff6fff;
+  outline: none;
+}
+
+.story-image {
+  border-radius: 16px;
+  box-shadow: 0 0 30px #ff6fff88;
+  margin: 1.5rem 0;
+  animation: fadeIn 2s;
+}
+
+/* Sidebar styling */
+.sidebar {
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+  padding: 20px;
+  border-radius: 10px;
+}
+
+/* Main content area */
+.main-area {
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+}
+
+.story-chunk {
+  opacity: 0;
+  transform: translateY(30px);
+  animation: fadeInUp 0.7s forwards;
+  font-size: 18px;
+}
+
+.story-chunk:last-child {
+  color: gold;
+}
+
+@keyframes fadeInUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

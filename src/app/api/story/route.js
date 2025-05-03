@@ -78,7 +78,6 @@ export async function POST(req) {
     );
 
     let full = response.data.choices[0].message.content.trim();
-    console.log("full: ", full);
 
     // Trim to last complete sentence
     // const lastPeriod = full.lastIndexOf(".");
@@ -94,7 +93,6 @@ export async function POST(req) {
       choices: json.choices,
     });
   } catch (error) {
-    console.log(error);
     console.error("OpenAI Error:", error.response?.data || error.message);
     return NextResponse.json(
       { error: "Failed to generate story" },
