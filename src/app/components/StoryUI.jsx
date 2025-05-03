@@ -4,36 +4,72 @@ import axios from "axios";
 
 export default function StoryUI() {
   const [prompt, setPrompt] = useState("A cat who wants to fly");
-  const [story, setStory] = useState("");
+  const [chunks, setChunks] = useState([]); // story paragraphs
+  const [choices, setChoices] = useState([]); // user options
+  const [loading, setLoading] = useState(false);
+  const [loadingAudio, setLoadingAudio] = useState(false);
   const [audioUrl, setAudioUrl] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [loadingStory, setLoadingStory] = useState(false);
-  const [loadingAudio, setLoadingAudio] = useState(false);
   const audioRef = useRef(null);
 
-  // Generate short story
-  const generateStory = async () => {
-    setLoadingStory(true);
-    setStory("");
-    setAudioUrl(null);
-    setIsPlaying(false);
-    try {
-      const res = await axios.post("/api/story", {
-        prompt,
-        max_tokens: 100, // ⬅️ Control story length
-      });
-      setStory(res.data.story);
+  const fullStory = chunks.join(" ");
 
-      // fetch audio in background
-      fetchAudioInBackground(res.data.story);
+  const generateInitialStory = async () => {
+    resetAll();
+    setLoading(true);
+    try {
+      const res = await axios.post("/api/story", { prompt });
+      const firstChunk = res.data.story;
+      setChunks([firstChunk]);
+      // fetchAudio(firstChunk);
+      generateChoices(firstChunk);
     } catch (err) {
-      setStory("Failed to fetch story.");
+      setChunks(["Failed to create story."]);
     }
-    setLoadingStory(false);
+    setLoading(false);
   };
 
-  // Fetch audio without playing
-  const fetchAudioInBackground = async (text) => {
+  const continueStory = async (choice) => {
+    setChoices([]); // hide choices
+    setChunks((prev) => [
+      ...prev,
+      `"${choice}" selected. Generating next part...`,
+    ]);
+    setLoading(true);
+
+    try {
+      const res = await axios.post("/api/story", {
+        history: fullStory,
+        choice,
+      });
+      const nextChunk = res.data.story;
+
+      // remove temporary loading message and add real story
+      setChunks((prev) => [...prev.slice(0, -1), nextChunk]);
+      generateChoices(nextChunk);
+    } catch (err) {
+      setChunks((prev) => [...prev.slice(0, -1), "Failed to continue story."]);
+    }
+
+    setLoading(false);
+  };
+
+  const generateChoices = async (context) => {
+    try {
+      const res = await axios.post("/api/choices", { context });
+      const raw = res.data.choices;
+      const options = raw
+        .split("\n")
+        .map((line) => line.replace(/^[-*\d.]\s*/, "").trim())
+        .filter(Boolean);
+      setChoices(options.slice(0, 3));
+    } catch (err) {
+      console.error("Choices fetch failed:", err);
+      setChoices(["Try again", "Pick a random path", "Continue..."]);
+    }
+  };
+
+  const fetchAudio = async (text) => {
     setLoadingAudio(true);
     try {
       const res = await axios.post(
@@ -45,15 +81,13 @@ export default function StoryUI() {
       const url = URL.createObjectURL(blob);
       setAudioUrl(url);
     } catch (err) {
-      console.error("TTS Error:", err);
-    } finally {
-      setLoadingAudio(false);
+      console.error("Audio fetch error:", err);
     }
+    setLoadingAudio(false);
   };
 
-  // Play/Pause toggle
-  const togglePlay = async () => {
-    // await fetchAudioInBackground(story);
+  const togglePlay = () => {
+    if (!audioUrl) return;
     if (!audioRef.current) {
       audioRef.current = new Audio(audioUrl);
       audioRef.current.onended = () => setIsPlaying(false);
@@ -63,66 +97,91 @@ export default function StoryUI() {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      if (audioUrl) {
-        audioRef.current.play();
-        setIsPlaying(true);
-      } else {
-        // show temporary loading
-        alert("Loading sound...");
-      }
+      audioRef.current.play();
+      setIsPlaying(true);
     }
   };
 
-  // Reset audio when new story is requested
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-      setIsPlaying(false);
-    }
-  }, [story]);
+  const resetAll = () => {
+    setChunks([]);
+    setChoices([]);
+    setAudioUrl(null);
+    setIsPlaying(false);
+    audioRef.current?.pause();
+    audioRef.current = null;
+  };
 
   return (
     <div className="bg-gray-800 p-6 rounded-xl max-w-2xl w-full shadow-lg space-y-4">
-      <h1 className="text-3xl font-bold text-center">AI Storyteller 📖</h1>
+      <div className="sticky top-0 z-20 bg-gray-800 p-4">
+        <h1 className="text-3xl font-bold text-center">AI Storyteller 📖</h1>
 
-      <textarea
-        rows={4}
-        value={prompt}
-        onChange={(e) => setPrompt(e.target.value)}
-        placeholder="Enter a prompt like: a cat who wants to fly..."
-        className="w-full p-3 rounded-md bg-gray-700 text-white placeholder-gray-400 border border-purple-500"
-      />
+        <textarea
+          rows={3}
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder="Enter a prompt like: a cat who wants to fly..."
+          className="w-full p-3 mt-4 rounded-md bg-gray-700 text-white placeholder-gray-400 border border-purple-500 resize-none"
+        />
 
-      <button
-        onClick={generateStory}
-        disabled={loadingStory || !prompt}
-        className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-md"
-      >
-        {loadingStory ? "Generating story..." : "Tell me a story"}
-      </button>
+        <button
+          onClick={generateInitialStory}
+          disabled={loading || !prompt}
+          className={`w-full mt-3 ${
+            loading ? "opacity-50 cursor-wait" : ""
+          } bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-md transition mb-2`}
+        >
+          {loading
+            ? "Generating..."
+            : chunks.length > 0
+            ? "New Story"
+            : "Tell me a story"}
+        </button>
+        <button
+          onClick={togglePlay}
+          disabled={loadingAudio}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-md w-full"
+        >
+          {loadingAudio
+            ? "🔄 Loading sound..."
+            : isPlaying
+            ? "⏸️ Pause Story"
+            : "▶️ Play Story"}
+        </button>
+      </div>
 
-      {story && (
-        <div className="relative pt-2">
-          {/* Sticky Play/Pause */}
-          <div className="sticky top-0 z-10 bg-gray-900 pb-2">
-            <button
-              onClick={togglePlay}
-              disabled={loadingAudio}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-md w-full"
+      {chunks.length > 0 && (
+        <div className="relative">
+          {chunks.map((para, i) => (
+            <p
+              key={i}
+              className="text-white mt-4 p-4 rounded whitespace-pre-line"
             >
-              {loadingAudio
-                ? "🔄 Loading sound..."
-                : isPlaying
-                ? "⏸️ Pause Story"
-                : "▶️ Play Story"}
-            </button>
-          </div>
+              {para}
+            </p>
+          ))}
 
-          {/* Story box */}
-          <div className="bg-gray-700 p-4 rounded-md whitespace-pre-line mt-2">
-            {story}
-          </div>
+          {choices.length > 0 && (
+            <div className="sticky bottom-0 z-20 bg-gray-800 p-4 mt-6">
+              <p className="text-lg font-semibold mb-2">
+                What should happen next?
+              </p>
+              <div className="flex flex-col gap-3">
+                {choices.map((c, i) => (
+                  <button
+                    key={i}
+                    onClick={() => continueStory(c)}
+                    disabled={loading}
+                    className={`${
+                      loading ? "opacity-50 cursor-wait" : ""
+                    } bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-md transition-all`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
