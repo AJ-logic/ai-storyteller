@@ -25,7 +25,7 @@ export async function POST(req) {
 
   const model = "gpt-4o-mini";
   const temperature = 0.8;
-  const max_tokens = 300;
+  const max_tokens = 400;
 
   const messages = [
     {

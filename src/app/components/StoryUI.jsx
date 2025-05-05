@@ -102,7 +102,38 @@ export default function StoryUI() {
     setChoices([]);
   };
 
+  const speakTextChunks = (text) => {
+    const sentences = text.match(/[^\.!\?]+[\.!\?]+/g) || [text];
+    speechSynthesis.cancel(); // Clear any ongoing speech
+
+    const speakNext = (index = 0) => {
+      if (index >= sentences.length) return;
+
+      const utterance = new SpeechSynthesisUtterance(sentences[index]);
+      const voices = speechSynthesis.getVoices();
+      const preferredVoice = voices.find((v) =>
+        v.name.includes("Google UK English Female")
+      );
+      if (preferredVoice) utterance.voice = preferredVoice;
+
+      utterance.onend = () => speakNext(index + 1);
+      speechSynthesis.speak(utterance);
+    };
+
+    speakNext();
+  };
+
   const storyEndRef = useRef(null);
+
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      console.log(voices);
+    };
+
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    loadVoices();
+  }, []);
 
   useEffect(() => {
     if (storyEndRef.current) {
@@ -114,7 +145,7 @@ export default function StoryUI() {
     <div className="flex min-h-screen w-full justify-center">
       {/* Left Sidebar */}
       <div className="w-1/3 p-6 shadow-lg h-screen sticky top-0 overflow-y-auto">
-        <h1 className="text-3xl font-bold text-center text-white mb-4">
+        <h1 className="text-2xl font-bold text-center text-white mb-4">
           📖 AI Storyteller 📖
         </h1>
 
@@ -144,7 +175,7 @@ export default function StoryUI() {
           disabled
           className="bg-gray-600 text-white font-semibold p-2 rounded-md w-full opacity-60 cursor-not-allowed"
         >
-          🔇 Audio temporarily disabled
+          🔇 Music temporarily disabled
         </button>
 
         {/* Display choices */}
@@ -189,7 +220,15 @@ export default function StoryUI() {
                     className="mx-auto w-[400px] h-[200px] rounded-md mb-4 object-cover"
                   />
                 )}
-                <p className="whitespace-pre-line">{chunk.text}</p>
+                <p className="whitespace-pre-line">
+                  {chunk.text}{" "}
+                  <button
+                    onClick={() => speakTextChunks(chunk.text)}
+                    className="text-white text-sm font-medium rounded-md"
+                  >
+                    🔊
+                  </button>
+                </p>
               </div>
             ))}
           </div>
